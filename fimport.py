@@ -66,12 +66,13 @@ import sys
 import os
 import glob
 import imp
+import time
+import errno
 
 from StringIO import StringIO
 
 from numpy.distutils.core import Extension, numpy_cmdclass, NumpyDistribution
-from distutils.dist import Distribution
-from distutils.errors import DistutilsArgError, DistutilsError, CCompilerError
+from distutils.errors import DistutilsArgError
 from distutils.util import grok_environment_error
 
 assert sys.hexversion >= 0x2030000, "need Python 2.3 or later"
@@ -115,6 +116,19 @@ def f_to_dll(filename, ext = None, force_rebuild = 0,
     if not fbuild_dir:
         fbuild_dir = os.path.join(path, "_fbld")
 
+    lock_fn = os.path.join(fbuild_dir, 'lock')
+    try:
+        os.makedirs(fbuild_dir)
+    except OSError:
+        pass
+
+    lock = LockFile(lock_fn)
+    with lock:
+        return _f_to_dll(filename, ext, force_rebuild, fbuild_dir,
+                         setup_args, reload_support)
+
+def _f_to_dll(filename, ext, force_rebuild ,
+              fbuild_dir, setup_args, reload_support):
     script_args=setup_args.get("script_args",[])
     if DEBUG or "--verbose" in script_args:
         quiet = "--verbose"
@@ -473,6 +487,67 @@ def install(fimport=True, build_dir=None,
         importer = FImporter(fbuild_dir=build_dir)
         sys.meta_path.append(importer)
 
+#------------------------------------------------------------------------------
+# Lock file
+#------------------------------------------------------------------------------
+
+try:
+    import posix
+    _IS_POSIX = True
+except:
+    _IS_POSIX = False
+
+if _IS_POSIX:
+    class LockFile(object):
+        """
+        Lock file (Unix-only), implemented via symlinks.
+        """
+    
+        def __init__(self, filename, timeout=0.05):
+            self.filename = filename
+            self.timeout = timeout
+            self.fd = None
+    
+        def __enter__(self):
+            tries = 0
+            while True:
+                if tries > 0:
+                    time.sleep(self.timeout)
+                try:
+                    os.symlink(str(os.getpid()), self.filename)
+                    break
+                except OSError, err:
+                    if err.errno != errno.EEXIST:
+                        raise
+    
+                    try:
+                        pid = int(os.readlink(self.filename))
+                    except OSError, err:
+                        if err.errno == errno.ENOENT:
+                            continue
+                        raise
+    
+                    # Check if it's still alive
+                    try:
+                        os.kill(pid, 0)
+                    except OSError, err:
+                        if err.errno == errno.ESRCH:
+                            # no such process
+                            os.unlink(self.filename)
+                            continue
+                        raise
+    
+        def __exit__(self, type, value, traceback):
+            os.unlink(self.filename)
+else:
+    # Dummy lockfile, does nothing
+    class LockFile(object):
+        def __init__(self, filename, timeout=0.05):
+            pass
+        def __enter__(self):
+            pass
+        def __exit__(self, type, value, traceback):
+            pass
 
 # MAIN
 
