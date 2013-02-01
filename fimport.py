@@ -200,6 +200,8 @@ def _f_to_dll(filename, ext, force_rebuild ,
                                           basename + '.reload%s'%count)
                     try:
                         import shutil # late import / reload_support is: debugging
+                        try: os.unlink(r_path)
+                        except OSError: pass
                         shutil.copy2(org_path, r_path)
                         so_path = r_path
                     except IOError:
