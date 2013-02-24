@@ -27,4 +27,5 @@ setup(
     py_modules=['fimport'],
     platforms='any',
     install_requires=['numpy>=1.4'],
+    test_suite='nose.collector',
 )
