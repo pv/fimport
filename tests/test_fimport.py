@@ -3,6 +3,7 @@ import sys
 import tempfile
 import shutil
 import time
+import imp
 
 from nose.tools import assert_equal, assert_true
 
@@ -24,26 +25,26 @@ def test_run():
         test_fdep = os.path.join(tmpdir, 'fimport_test_123.fdep')
 
         with open(test_f90, 'wb') as f:
-            f.write("subroutine ham(a)\n"
-                    "double precision, intent(out) :: a\n"
-                    "include 'fimport_test_123.inc'\n"
-                    "end subroutine\n"
-                    "subroutine spam(a)\n"
-                    "double precision, intent(out) :: a\n"
-                    "a = 9.99d0\n"
-                    "end subroutine\n")
+            f.write(b"subroutine ham(a)\n"
+                    b"double precision, intent(out) :: a\n"
+                    b"include 'fimport_test_123.inc'\n"
+                    b"end subroutine\n"
+                    b"subroutine spam(a)\n"
+                    b"double precision, intent(out) :: a\n"
+                    b"a = 9.99d0\n"
+                    b"end subroutine\n")
 
         with open(test_inc, 'wb') as f:
-            f.write("a = 3.14d0\n")
+            f.write(b"a = 3.14d0\n")
 
         with open(test_fbld, 'wb') as f:
-            f.write("from numpy.distutils.core import Extension\n"
-                    "def make_ext(modname, ffilename):\n"
-                    "    return Extension(name=modname, sources=[ffilename],\n"
-                    "                     f2py_options=['only:', 'ham', ':'])")
+            f.write(b"from numpy.distutils.core import Extension\n"
+                    b"def make_ext(modname, ffilename):\n"
+                    b"    return Extension(name=modname, sources=[ffilename],\n"
+                    b"                     f2py_options=['only:', 'ham', ':'])")
 
         with open(test_fdep, 'wb') as f:
-            f.write("fimport_test_123.inc")
+            f.write(b"fimport_test_123.inc")
 
         # import!
         import fimport_test_123
@@ -55,10 +56,14 @@ def test_run():
 
         # rewrite and reload
         with open(test_inc, 'wb') as f:
-            f.write("a = 1.23d0\n")
+            f.write(b"a = 1.23d0\n")
 
-        reload(fimport_test_123)
-        assert_equal(fimport_test_123.ham(), 1.23)
+        newmod = imp.reload(fimport_test_123)
+        assert_equal(newmod.ham(), 1.23)
+        if sys.version_info[0] >= 3:
+            raise AssertionError("Reloading doesn't work currently on Python 3")
+        else:
+            assert_equal(fimport_test_123.ham(), 1.23)
     finally:
         sys.path = old_path
         shutil.rmtree(tmpdir)

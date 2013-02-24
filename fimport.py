@@ -69,7 +69,17 @@ import imp
 import time
 import errno
 
-from StringIO import StringIO
+if sys.version_info[0] >= 3:
+    from io import StringIO
+    def reraise(tp, value, tb=None):
+        value = tp(value)
+        if value.__traceback__ is not tb:
+            raise value.with_traceback(tb)
+        raise value
+else:
+    from StringIO import StringIO
+    exec("def reraise(tp, value, tb=None):\n    raise tp, value, tb",
+         globals())
 
 from numpy.distutils.core import Extension, numpy_cmdclass, NumpyDistribution
 from distutils.errors import DistutilsArgError
@@ -285,7 +295,7 @@ def handle_dependencies(ffilename):
     # but we know more about dependencies so force a rebuild if
     # some of the dependencies are newer than the ffile.
     if os.path.exists(dependfile):
-        with open(dependfile, 'rb') as f:
+        with open(dependfile, 'r') as f:
             depends = f.readlines()
         depends = [depend.strip() for depend in depends]
 
@@ -352,9 +362,10 @@ def load_module(name, ffilename, fbuild_dir=None):
         assert mod.__file__ == so_path, (mod.__file__, so_path)
     except Exception:
         import traceback
-        raise ImportError("Building module %s failed: %s" %
-                          (name,
-                           traceback.format_exception_only(*sys.exc_info()[:2]))), None, sys.exc_info()[2]
+        reraise(ImportError, 
+                "Building module %s failed: %s" % (
+                    name, traceback.format_exception_only(*sys.exc_info()[:2])), 
+                sys.exc_info()[2])
     return mod
 
 
@@ -413,11 +424,15 @@ class FImporter(object):
                 paths = sys.path
             join_path = os.path.join
             is_file = os.path.isfile
+            is_abs = os.path.isabs
+            abspath = os.path.abspath
             #is_dir = os.path.isdir
             sep = os.path.sep
             for path in paths:
                 if not path:
                     path = os.getcwd()
+                elif not is_abs(path):
+                    path = abspath(path)
                 if is_file(path+sep+f_module_name):
                     return FLoader(fullname, join_path(path, f_module_name),
                                      fbuild_dir=self.fbuild_dir)
@@ -518,13 +533,13 @@ if _IS_POSIX:
                 try:
                     os.symlink(str(os.getpid()), self.filename)
                     break
-                except OSError, err:
+                except OSError as err:
                     if err.errno != errno.EEXIST:
                         raise
     
                     try:
                         pid = int(os.readlink(self.filename))
-                    except OSError, err:
+                    except OSError as err:
                         if err.errno == errno.ENOENT:
                             continue
                         raise
@@ -532,7 +547,7 @@ if _IS_POSIX:
                     # Check if it's still alive
                     try:
                         os.kill(pid, 0)
-                    except OSError, err:
+                    except OSError as err:
                         if err.errno == errno.ESRCH:
                             # no such process
                             os.unlink(self.filename)
@@ -554,7 +569,7 @@ else:
 # MAIN
 
 def show_docs():
-    print __doc__
+    print(__doc__)
 
 if __name__ == '__main__':
     show_docs()
