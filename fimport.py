@@ -85,9 +85,9 @@ from numpy.distutils.core import Extension, numpy_cmdclass, NumpyDistribution
 from distutils.errors import DistutilsArgError
 from distutils.util import grok_environment_error
 
-assert sys.hexversion >= 0x2030000, "need Python 2.3 or later"
+assert sys.hexversion >= 0x2060000, "need Python 2.6 or later"
 
-__version__ = "0.1.dev"
+__version__ = "0.2"
 
 F_EXT = ".f"
 F90_EXT = ".f90"
