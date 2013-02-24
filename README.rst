@@ -17,6 +17,13 @@ very convenient.
 
 This code is based on Cython's pyximport module.
 
+.. note::
+
+   Reloading modules doesn't work currently on Python 3. You'll
+   have to do instead
+
+       some_module = imp.reload(some_module)
+
 Build customization
 -------------------
 
