@@ -87,7 +87,7 @@ from distutils.util import grok_environment_error
 
 assert sys.hexversion >= 0x2060000, "need Python 2.6 or later"
 
-__version__ = "0.2"
+__version__ = "0.3.dev"
 
 F_EXT = ".f"
 F90_EXT = ".f90"
